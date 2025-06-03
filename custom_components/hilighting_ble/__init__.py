@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, Event
-from homeassistant.const import CONF_MAC, EVENT_HOMEASSISTANT_STOP
-from homeassistant.const import Platform
-
-from .const import DOMAIN, CONF_DELAY
-from .hilightingble import HILIGHTINGInstance
 import logging
+
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import CONF_MAC, EVENT_HOMEASSISTANT_STOP, Platform
+from homeassistant.core import Event, HomeAssistant
+
+from .const import CONF_DELAY, DOMAIN
+from .hilightingble import HILIGHTINGInstance
 
 LOGGER = logging.getLogger(__name__)
 # PLATFORMS = ["light"]

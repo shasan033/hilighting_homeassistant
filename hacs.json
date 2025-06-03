@@ -3,6 +3,6 @@
     "content_in_root": false,
     "zip_release": false,
     "render_readme": true,
-    "homeassistant": "2023.11.0",
-    "hacs": "1.33.0"   
+    "homeassistant": "2025.5.3",
+    "hacs": "2.0.5"   
 }

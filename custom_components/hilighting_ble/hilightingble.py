@@ -1,10 +1,11 @@
 import asyncio
-from homeassistant.components import bluetooth
-from homeassistant.exceptions import ConfigEntryNotReady
-from homeassistant.components.light import (ColorMode)
-from homeassistant.components.light import EFFECT_OFF
+import logging
+from collections.abc import Callable
+from typing import Any, TypeVar, cast
+
+from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
-from bleak.backends.service import BleakGATTCharacteristic, BleakGATTServiceCollection
+from bleak.backends.service import BleakGATTServiceCollection
 from bleak.exc import BleakDBusError
 from bleak_retry_connector import BLEAK_RETRY_EXCEPTIONS as BLEAK_EXCEPTIONS
 from bleak_retry_connector import (
@@ -14,9 +15,11 @@ from bleak_retry_connector import (
     #ble_device_has_changed,
     establish_connection,
 )
-from typing import Any, TypeVar, cast, Tuple
-from collections.abc import Callable
-import logging
+from homeassistant.components import bluetooth
+from homeassistant.components.light import EFFECT_OFF
+from homeassistant.components.light.const import ColorMode
+from homeassistant.exceptions import ConfigEntryNotReady
+
 #import colorsys
 
 
@@ -102,7 +105,7 @@ def retry_bluetooth_connection_error(func: WrapFuncType) -> WrapFuncType:
                     exc_info=True,
                 )
 
-    return cast(WrapFuncType, _async_wrap_retry_bluetooth_connection_error)
+    return cast("WrapFuncType", _async_wrap_retry_bluetooth_connection_error)
 
 
 class HILIGHTINGInstance:
@@ -113,7 +116,7 @@ class HILIGHTINGInstance:
         self._hass = hass
         #self._data = data
         self._options = options
-        
+
         self._device: BLEDevice | None = None
         self._device = bluetooth.async_ble_device_from_address(self._hass, address)
         if not self._device:
@@ -153,30 +156,30 @@ class HILIGHTINGInstance:
             LOGGER.debug("Looking up model number")
             m = await self._read_characteristic(self._model_number_char)
             LOGGER.debug(f"Model number: {m}")
-            if m: self._model = m.decode('ascii')
+            if m: self._model = m.decode("ascii")
         if self._manufacturer_name is None:
             LOGGER.debug("Looking up manu name")
             m = await self._read_characteristic(self._manufacturer_name_char)
             LOGGER.debug(f"Manufacturer name: {m}")
-            if m: self._manufacturer_name = m.decode('ascii')
+            if m: self._manufacturer_name = m.decode("ascii")
         if self._firmware_version is None:
             LOGGER.debug("Looking up fw number")
             m = await self._read_characteristic(self._firmware_revision_char)
             LOGGER.debug(f"Firmware version: {m}")
-            if m: self._firmware_version = m.decode('ascii')
-        
+            if m: self._firmware_version = m.decode("ascii")
+
         return bool(self._model and self._manufacturer_name and self._firmware_version)
 
     async def _read_characteristic(self, char: BleakGATTCharacteristic):
         if not char:
-            LOGGER.error(f"No characteristic to read")
+            LOGGER.error("No characteristic to read")
             return None
         if self._client is not None:
             data = await self._client.read_gatt_char(char.uuid)
             LOGGER.debug(f"Char read data: {data}")
             return data
         return None
-    
+
     async def _write(self, data: bytearray):
         """Send command to device and read response."""
         await self._ensure_connected()
@@ -185,7 +188,7 @@ class HILIGHTINGInstance:
     async def _write_while_connected(self, data: bytearray):
         LOGGER.debug(f"Writing data to {self.name}: {data.hex()}")
         await self._client.write_gatt_char(self._write_uuid, data, False)
-    
+
     @property
     def mac(self):
         return self._device.address
@@ -204,7 +207,7 @@ class HILIGHTINGInstance:
 
     @property
     def brightness(self):
-        return self._brightness 
+        return self._brightness
 
     @property
     def rgb_color(self):
@@ -217,7 +220,7 @@ class HILIGHTINGInstance:
     @property
     def effect(self):
         return self._effect
-    
+
     @property
     def color_mode(self):
         return self._color_mode
@@ -226,22 +229,22 @@ class HILIGHTINGInstance:
     async def turn_on(self):
         await self._write(self._turn_on_cmd)
         self._is_on = True
-                
+
     @retry_bluetooth_connection_error
     async def turn_off(self):
         await self._write(self._turn_off_cmd)
         self._is_on = False
 
     @retry_bluetooth_connection_error
-    async def set_rgb_color(self, rgb: Tuple[int, int, int]):
+    async def set_rgb_color(self, rgb: tuple[int, int, int]):
         """
-            |------|------------------------ header
-            |      | ||--------------------- red
-            |      | || ||------------------ green
-            |      | || || ||--------------- blue
-            55 07 01 ff 00 00
-            55 07 01 00 ff 00
-            55 07 01 00 00 ff
+        |------|------------------------ header
+        |      | ||--------------------- red
+        |      | || ||------------------ green
+        |      | || || ||--------------- blue
+        55 07 01 ff 00 00
+        55 07 01 00 ff 00
+        55 07 01 00 00 ff
         """
         self._rgb_color = rgb
         red = int(rgb[0])
@@ -253,17 +256,16 @@ class HILIGHTINGInstance:
         rgb_packet[5] = blue
         await self._write(rgb_packet)
         self._effect = EFFECT_OFF
-    
+
     @retry_bluetooth_connection_error
     async def set_brightness(self, brightness: int):
         self._brightness = brightness
         brightness_packet = bytearray.fromhex("55 03 01 ff 03")
         b = int(brightness * 0.06)
-        if b > 0x0f:
-            b = 0x0f
+        b = min(b, 0x0f)
         brightness_packet[4] = b
         await self._write(brightness_packet)
-    
+
     @retry_bluetooth_connection_error
     async def set_effect(self, effect: str):
         if effect not in EFFECT_LIST:
@@ -272,11 +274,11 @@ class HILIGHTINGInstance:
         self._effect = effect
         effect_packet = bytearray.fromhex("55 04 01 00")
         effect_id = EFFECT_MAP.get(effect)
-        LOGGER.debug('Effect ID: %s', effect_id)
-        LOGGER.debug('Effect name: %s', effect)
+        LOGGER.debug("Effect ID: %s", effect_id)
+        LOGGER.debug("Effect name: %s", effect)
         effect_packet[3] = effect_id
         await self._write(effect_packet)
-    
+
     @retry_bluetooth_connection_error
     async def set_effect_speed(self, speed: int):
         speed_packet = bytearray.fromhex("55 04 04 7f")
@@ -292,7 +294,7 @@ class HILIGHTINGInstance:
         # if self._model is None:
         #     self._model = await self._detect_model()
         #     LOGGER.debug(f"Model: {self._model}")
-        
+
 
     async def _ensure_connected(self) -> None:
         """Ensure connection to device is established."""
@@ -321,12 +323,12 @@ class HILIGHTINGInstance:
             )
             LOGGER.debug("%s: Connected", self.name)
             resolved = self._resolve_characteristics(client.services)
-            
+
             LOGGER.debug(f"Resolved: {resolved}")
             if not resolved:
                 # Try to handle services failing to load
                 #resolved = self._resolve_characteristics(await client.get_services())
-                LOGGER.debug(f"Chars were not resolved.  Trying again...")
+                LOGGER.debug("Chars were not resolved.  Trying again...")
                 resolved = self._resolve_characteristics(client.services)
                 LOGGER.debug(f"After trying to resolve: Resolved: {resolved}")
             self._cached_services = client.services if resolved else None
@@ -401,4 +403,4 @@ class HILIGHTINGInstance:
             if client and client.is_connected:
                 await client.disconnect()
             LOGGER.debug("%s: Disconnected", self.name)
-    
+

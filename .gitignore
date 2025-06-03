@@ -1,1 +1,4 @@
 *.pyc
+.devcontainer.json
+.*
+config/

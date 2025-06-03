@@ -1,16 +1,17 @@
 from __future__ import annotations
+
 from homeassistant.components.number import (
     NumberEntity,
-    NumberEntityDescription,
 )
-from .hilightingble import HILIGHTINGInstance
-from .const import DOMAIN
-from homeassistant.helpers.entity import DeviceInfo
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers import device_registry
-from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
-import logging
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry
+from homeassistant.helpers.device_registry import DeviceInfo
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+from .const import DOMAIN
+from .hilightingble import HILIGHTINGInstance
+
 
 async def async_setup_entry(
     hass: HomeAssistant,

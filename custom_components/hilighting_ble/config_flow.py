@@ -1,23 +1,23 @@
 import asyncio
-from .hilightingble import HILIGHTINGInstance
+import logging
 from typing import Any
 
-from bluetooth_data_tools import human_readable_name
-from homeassistant import config_entries
-from homeassistant.const import CONF_MAC
 import voluptuous as vol
-from homeassistant.helpers.device_registry import format_mac
-from homeassistant.data_entry_flow import FlowResult
-from homeassistant.core import callback
+from bluetooth_data_tools import human_readable_name
+from bluetooth_sensor_state_data import BluetoothData
+from home_assistant_bluetooth import BluetoothServiceInfo
+from homeassistant import config_entries
 from homeassistant.components.bluetooth import (
     BluetoothServiceInfoBleak,
     async_discovered_service_info,
 )
-from bluetooth_sensor_state_data import BluetoothData
-from home_assistant_bluetooth import BluetoothServiceInfo
+from homeassistant.const import CONF_MAC
+from homeassistant.core import callback
+from homeassistant.data_entry_flow import FlowResult
+from homeassistant.helpers.device_registry import format_mac
 
-from .const import DOMAIN, CONF_RESET, CONF_DELAY
-import logging
+from .const import CONF_DELAY, DOMAIN
+from .hilightingble import HILIGHTINGInstance
 
 LOGGER = logging.getLogger(__name__)
 DATA_SCHEMA = vol.Schema({("host"): str})
@@ -46,7 +46,7 @@ class DeviceData(BluetoothData):
     def _start_update(self, service_info: BluetoothServiceInfo) -> None:
         """Update from BLE advertisement data."""
         LOGGER.debug("Parsing BLE advertisement data: %s", service_info)
-        
+
 class HILIGHTINGBLEFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
     CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_POLL
@@ -75,8 +75,7 @@ class HILIGHTINGBLEFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         if device.supported():
             self._discovered_devices.append(device)
             return await self.async_step_bluetooth_confirm()
-        else:
-            return self.async_abort(reason="not_supported")
+        return self.async_abort(reason="not_supported")
 
     async def async_step_bluetooth_confirm(
         self, user_input: dict[str, Any] | None = None
@@ -85,7 +84,7 @@ class HILIGHTINGBLEFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         LOGGER.debug("Discovered bluetooth devices, step bluetooth confirm, : %s", user_input)
         self._set_confirm_only()
         return await self.async_step_user()
-    
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -94,7 +93,7 @@ class HILIGHTINGBLEFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             self.mac = user_input[CONF_MAC]
             if "title_placeholders" in self.context:
                 self.name = self.context["title_placeholders"]["name"]
-            if 'source' in self.context.keys() and self.context['source'] == "user":
+            if "source" in self.context.keys() and self.context["source"] == "user":
                 LOGGER.debug(f"User context.  discovered devices: {self._discovered_devices}")
                 for each in self._discovered_devices:
                   LOGGER.debug(f"Address: {each.address()}")
@@ -117,7 +116,7 @@ class HILIGHTINGBLEFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             device = DeviceData(discovery_info)
             if device.supported():
                 self._discovered_devices.append(device)
-        
+
         if not self._discovered_devices:
             return await self.async_step_manual()
 
@@ -146,7 +145,7 @@ class HILIGHTINGBLEFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 if user_input["flicker"]:
                     return self.async_create_entry(title=self.name, data=data)
                 return self.async_abort(reason="cannot_validate")
-            
+
             if "retry" in user_input and not user_input["retry"]:
                 return self.async_abort(reason="cannot_connect")
 
@@ -159,7 +158,7 @@ class HILIGHTINGBLEFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                         vol.Required("retry"): bool
                     }
                 ), errors={"base": "connect"})
-        
+
         return self.async_show_form(
             step_id="validate", data_schema=vol.Schema(
                 {
@@ -168,7 +167,7 @@ class HILIGHTINGBLEFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             ), errors={})
 
     async def async_step_manual(self, user_input: "dict[str, Any] | None" = None):
-        if user_input is not None:            
+        if user_input is not None:
             self.mac = user_input[CONF_MAC]
             self.name = user_input["name"]
             await self.async_set_unique_id(format_mac(self.mac))
@@ -216,7 +215,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
     async def async_step_init(self, _user_input=None):
         """Manage the options."""
         return await self.async_step_user()
-    
+
     async def async_step_user(self, user_input=None):
         """Handle a flow initialized by the user."""
         errors = {}
